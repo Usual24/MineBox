@@ -10,42 +10,57 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1️⃣ Repo checkout (현재 MineBox repo)
       - name: Checkout Repo
         uses: actions/checkout@v3
 
+      # 2️⃣ Clone termux-app & termux-packages
+      - name: Clone termux-app
+        run: git clone https://github.com/termux/termux-app.git
+
+      - name: Clone termux-packages
+        run: git clone https://github.com/termux/termux-packages.git
+
+      # 3️⃣ Java 설치
       - name: Set up Java
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
           java-version: '17'
 
+      # 4️⃣ Linux 의존성 설치
       - name: Install Dependencies
         run: |
           sudo apt update
           sudo apt install -y wget unzip git clang cmake build-essential python3
 
+      # 5️⃣ Android NDK 설치
       - name: Download Android NDK
         run: |
           wget https://dl.google.com/android/repository/android-ndk-r25b-linux.zip
           unzip android-ndk-r25b-linux.zip
           echo "ANDROID_NDK=$PWD/android-ndk-r25b" >> $GITHUB_ENV
 
+      # 6️⃣ MineBox.sh를 termux-app assets에 복사
       - name: Copy MineBox.sh to assets
         run: |
           mkdir -p termux-app/app/src/main/assets
           cp minebox.sh termux-app/app/src/main/assets/
 
+      # 7️⃣ TermuxActivity.java 패치
       - name: Patch TermuxActivity.java
         run: |
           sed -i 's|String shell = "bash";|String shell = "/data/data/com.termux/files/home/minebox.sh"; try { Runtime.getRuntime().exec(new String[]{"chmod","+x","/data/data/com.termux/files/home/minebox.sh"}).waitFor(); Runtime.getRuntime().exec(new String[]{"/data/data/com.termux/files/home/minebox.sh"}); } catch(Exception e) { e.printStackTrace(); }|' termux-app/app/src/main/java/com/termux/app/TermuxActivity.java
 
+      # 8️⃣ Gradle로 APK 빌드
       - name: Build APK
         run: |
           cd termux-app
           ./gradlew assembleDebug
 
+      # 9️⃣ APK artifact 업로드
       - name: Upload APK
-        uses: actions/upload-artifact@v4   # v3 → v4로 변경
+        uses: actions/upload-artifact@v4
         with:
           name: termux-minebox-apk
           path: termux-app/app/build/outputs/apk/debug/app-debug.apk
