@@ -1,4 +1,4 @@
-name: Build Termux MineBox APK
+name: Build Termux MineBox APK (arm64)
 
 on:
   push:
@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ MineBox repo checkout
+      # 1️⃣ Checkout MineBox repo
       - name: Checkout Repo
         uses: actions/checkout@v3
 
@@ -33,13 +33,19 @@ jobs:
         run: |
           sed -i 's|String shell = "bash";|String shell = "/data/data/com.termux/files/home/minebox.sh"; try { Runtime.getRuntime().exec(new String[]{"chmod","+x","/data/data/com.termux/files/home/minebox.sh"}).waitFor(); Runtime.getRuntime().exec(new String[]{"/data/data/com.termux/files/home/minebox.sh"}); } catch(Exception e) { e.printStackTrace(); }|' termux-app/app/src/main/java/com/termux/app/TermuxActivity.java
 
-      # 6️⃣ Build APK
+      # 6️⃣ Configure build for arm64
+      - name: Set abiFilters
+        run: |
+          sed -i '/ndk {/,+2d' termux-app/app/build.gradle   # 기존 ndk 블록 제거
+          echo 'android { defaultConfig { ndk { abiFilters "arm64-v8a", "armeabi-v7a" } } }' >> termux-app/app/build.gradle
+
+      # 7️⃣ Build APK
       - name: Build APK
         run: |
           cd termux-app
           ./gradlew assembleDebug --console=plain
 
-      # 7️⃣ Find APK automatically
+      # 8️⃣ Find APK automatically
       - name: Find APK
         id: find_apk
         run: |
@@ -47,9 +53,9 @@ jobs:
           echo "APK_PATH=$APK_PATH" >> $GITHUB_ENV
           echo "Found APK at $APK_PATH"
 
-      # 8️⃣ Upload artifact
+      # 9️⃣ Upload artifact
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: termux-minebox-apk
+          name: termux-minebox-arm64-apk
           path: ${{ env.APK_PATH }}
