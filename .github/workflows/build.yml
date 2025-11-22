@@ -10,57 +10,63 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Repo checkout (현재 MineBox repo)
+      # 1️⃣ MineBox repo checkout
       - name: Checkout Repo
         uses: actions/checkout@v3
 
       # 2️⃣ Clone termux-app & termux-packages
       - name: Clone termux-app
         run: git clone https://github.com/termux/termux-app.git
-
       - name: Clone termux-packages
         run: git clone https://github.com/termux/termux-packages.git
 
-      # 3️⃣ Java 설치
+      # 3️⃣ Java setup
       - name: Set up Java
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      # 4️⃣ Linux 의존성 설치
+      # 4️⃣ Linux deps
       - name: Install Dependencies
         run: |
           sudo apt update
           sudo apt install -y wget unzip git clang cmake build-essential python3
 
-      # 5️⃣ Android NDK 설치
+      # 5️⃣ Android NDK
       - name: Download Android NDK
         run: |
           wget https://dl.google.com/android/repository/android-ndk-r25b-linux.zip
           unzip android-ndk-r25b-linux.zip
           echo "ANDROID_NDK=$PWD/android-ndk-r25b" >> $GITHUB_ENV
 
-      # 6️⃣ MineBox.sh를 termux-app assets에 복사
-      - name: Copy MineBox.sh to assets
+      # 6️⃣ Copy MineBox.sh to assets
+      - name: Copy MineBox.sh
         run: |
           mkdir -p termux-app/app/src/main/assets
           cp minebox.sh termux-app/app/src/main/assets/
 
-      # 7️⃣ TermuxActivity.java 패치
+      # 7️⃣ Patch TermuxActivity.java
       - name: Patch TermuxActivity.java
         run: |
           sed -i 's|String shell = "bash";|String shell = "/data/data/com.termux/files/home/minebox.sh"; try { Runtime.getRuntime().exec(new String[]{"chmod","+x","/data/data/com.termux/files/home/minebox.sh"}).waitFor(); Runtime.getRuntime().exec(new String[]{"/data/data/com.termux/files/home/minebox.sh"}); } catch(Exception e) { e.printStackTrace(); }|' termux-app/app/src/main/java/com/termux/app/TermuxActivity.java
 
-      # 8️⃣ Gradle로 APK 빌드
+      # 8️⃣ Build APK
       - name: Build APK
         run: |
           cd termux-app
           ./gradlew assembleDebug
 
-      # 9️⃣ APK artifact 업로드
+      # 9️⃣ Find APK automatically
+      - name: Find APK
+        id: find_apk
+        run: |
+          APK_PATH=$(find app/build/outputs/apk -name "*.apk" | head -n 1)
+          echo "APK_PATH=$APK_PATH" >> $GITHUB_ENV
+
+      # 🔟 Upload artifact
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: termux-minebox-apk
-          path: termux-app/app/build/outputs/apk/debug/app-debug.apk
+          path: ${{ env.APK_PATH }}
