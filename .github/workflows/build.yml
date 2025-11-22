@@ -1,4 +1,4 @@
-name: Build Termux MineBox APK (arm64)
+name: Build Termux MineBox APK (arm64 Release)
 
 on:
   push:
@@ -14,7 +14,7 @@ jobs:
       - name: Checkout Repo
         uses: actions/checkout@v3
 
-      # 2️⃣ Clone termux-app only
+      # 2️⃣ Clone termux-app
       - name: Clone termux-app
         run: git clone https://github.com/termux/termux-app.git
 
@@ -33,17 +33,19 @@ jobs:
         run: |
           sed -i 's|String shell = "bash";|String shell = "/data/data/com.termux/files/home/minebox.sh"; try { Runtime.getRuntime().exec(new String[]{"chmod","+x","/data/data/com.termux/files/home/minebox.sh"}).waitFor(); Runtime.getRuntime().exec(new String[]{"/data/data/com.termux/files/home/minebox.sh"}); } catch(Exception e) { e.printStackTrace(); }|' termux-app/app/src/main/java/com/termux/app/TermuxActivity.java
 
-      # 6️⃣ Configure build for arm64
-      - name: Set abiFilters
+      # 6️⃣ Configure build for arm64 + minSdk
+      - name: Configure build.gradle
         run: |
-          sed -i '/ndk {/,+2d' termux-app/app/build.gradle   # 기존 ndk 블록 제거
-          echo 'android { defaultConfig { ndk { abiFilters "arm64-v8a", "armeabi-v7a" } } }' >> termux-app/app/build.gradle
+          sed -i '/ndk {/,+2d' termux-app/app/build.gradle
+          sed -i '/minSdkVersion/d' termux-app/app/build.gradle
+          sed -i '/targetSdkVersion/d' termux-app/app/build.gradle
+          echo 'android { defaultConfig { minSdkVersion 21; targetSdkVersion 34; ndk { abiFilters "arm64-v8a", "armeabi-v7a" } } }' >> termux-app/app/build.gradle
 
-      # 7️⃣ Build APK
-      - name: Build APK
+      # 7️⃣ Build Release APK
+      - name: Build Release APK
         run: |
           cd termux-app
-          ./gradlew assembleDebug --console=plain
+          ./gradlew assembleRelease --console=plain
 
       # 8️⃣ Find APK automatically
       - name: Find APK
@@ -57,5 +59,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: termux-minebox-arm64-apk
+          name: termux-minebox-arm64-release-apk
           path: ${{ env.APK_PATH }}
